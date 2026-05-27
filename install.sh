@@ -57,7 +57,7 @@ docker run -d \
   -e SSH_PASSWORD="$PASSWORD" \
   -p ${SSH_PORT}:22 \
   -p 4400-4499:4400-4499 \
-  rssh >/dev/null
+  rssh-amd64 >/dev/null
 
 HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 [ -z "$HOST_IP" ] && HOST_IP=$(hostname)
