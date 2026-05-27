@@ -1,26 +1,41 @@
-#!/bin/bash
+#!/bin/sh
 
-set -e
+set -eu
 
-#IMAGE_URL="https://github.com/LaryHUB/rush/blob/main/rssh.tar"
-IMAGE_URL="https://github.com/LaryHUB/rush/raw/main/rssh.tar"
+IMAGE_URL="https://raw.githubusercontent.com/LaryHUB/rush/main/rssh.tar"
 
 SSH_USER="skai"
 SSH_PORT="2222"
 
 PASSWORD=$(openssl rand -base64 18 | tr -d "=+/")
 
-SERVER_IP=$(curl -s https://api.ipify.org)
+log() { printf '\033[1;34m[rssh]\033[0m %s\n' "$*"; }
+err() { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
 
-apt update
+[ "$(id -u)" -eq 0 ] || err "run as root or via sudo"
 
-apt install -y \
-    docker.io \
-    curl \
-    openssl
+# docker
+if ! command -v docker >/dev/null 2>&1; then
+    log "installing docker"
 
-systemctl enable docker
-systemctl start docker
+    export DEBIAN_FRONTEND=noninteractive
+
+    if ! command -v curl >/dev/null 2>&1; then
+        apt-get update -qq
+        apt-get install -y -qq --no-install-recommends \
+            curl \
+            ca-certificates >/dev/null
+    fi
+
+    curl -fsSL https://get.docker.com | sh
+
+    systemctl enable --now docker 2>/dev/null || \
+    service docker start 2>/dev/null || true
+fi
+
+docker info >/dev/null 2>&1 || err "docker daemon not running"
+
+log "downloading rssh image"
 
 mkdir -p /opt/rssh
 
@@ -28,9 +43,13 @@ cd /opt/rssh
 
 curl -L "$IMAGE_URL" -o rssh.tar
 
-docker load -i rssh.tar
+log "loading image"
 
-docker rm -f rssh 2>/dev/null || true
+docker load -i rssh.tar >/dev/null
+
+docker rm -f rssh >/dev/null 2>&1 || true
+
+log "starting rssh"
 
 docker run -d \
   --restart unless-stopped \
@@ -38,14 +57,17 @@ docker run -d \
   -e SSH_PASSWORD="$PASSWORD" \
   -p ${SSH_PORT}:22 \
   -p 4400-4499:4400-4499 \
-  rssh
+  rssh >/dev/null
+
+HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+[ -z "$HOST_IP" ] && HOST_IP=$(hostname)
 
 echo ""
 echo "=================================="
 echo " RSSH READY"
 echo "=================================="
 echo ""
-echo "Server host ${SERVER_IP}:${SSH_PORT}"
+echo "Server host ${HOST_IP}:${SSH_PORT}"
 echo "Server Port 44XX"
 echo "Server User ${SSH_USER}"
 echo "Server Password ${PASSWORD}"
