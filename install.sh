@@ -2,7 +2,7 @@
 
 set -eu
 
-IMAGE_URL="https://raw.githubusercontent.com/LaryHUB/rush/main/rssh.tar"
+IMAGE_URL="https://raw.githubusercontent.com/LaryHUB/rush/main/rssh-amd64.tar"
 
 SSH_USER="skai"
 SSH_PORT="2222"
